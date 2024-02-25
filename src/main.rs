@@ -57,14 +57,21 @@ async fn list_asgs(
     let mut asgs = Vec::new();
     let mut asg_stream = as_client
         .describe_auto_scaling_groups()
-        .auto_scaling_group_names(cluster)
         .max_records(100)
         .into_paginator()
         .send();
 
     while let Some(asg) = asg_stream.next().await {
         debug!("ASG: {:?}", asg);
-        let asgs = asg.unwrap().auto_scaling_groups.unwrap();
+        for group in asg.unwrap().auto_scaling_groups.unwrap() {
+            if group
+                .auto_scaling_group_name.clone()
+                .unwrap()
+                .contains(cluster)
+                {
+                asgs.push(group.auto_scaling_group_name.unwrap());
+            }
+        }
     }
     Ok(asgs)
 }
