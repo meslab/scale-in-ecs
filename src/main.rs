@@ -57,14 +57,21 @@ async fn list_asgs(
     let mut asgs = Vec::new();
     let mut asg_stream = as_client
         .describe_auto_scaling_groups()
-        .auto_scaling_group_names(cluster)
         .max_records(100)
         .into_paginator()
         .send();
 
     while let Some(asg) = asg_stream.next().await {
         debug!("ASG: {:?}", asg);
-        let asgs = asg.unwrap().auto_scaling_groups.unwrap();
+        for group in asg.unwrap().auto_scaling_groups.unwrap() {
+            if group
+                .auto_scaling_group_name.clone()
+                .unwrap()
+                .contains(cluster)
+                {
+                asgs.push(group.auto_scaling_group_name.unwrap());
+            }
+        }
     }
     Ok(asgs)
 }
@@ -104,6 +111,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let asgs = list_asgs(&as_client, &args.cluster).await?;
     info!("ASGs: {:?}", asgs);
+
+    for asg in asgs {
+        scale_down_asg(&as_client, &asg, 0).await?;
+    }
 
     let ecs_region = EcsRegion::new(args.region.clone());
     let ecs_credentials_provider = DefaultCredentialsChain::builder()
