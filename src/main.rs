@@ -112,6 +112,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let asgs = list_asgs(&as_client, &args.cluster).await?;
     info!("ASGs: {:?}", asgs);
 
+    for asg in asgs {
+        scale_down_asg(&as_client, &asg, 0).await?;
+    }
+
     let ecs_region = EcsRegion::new(args.region.clone());
     let ecs_credentials_provider = DefaultCredentialsChain::builder()
         .region(ecs_region.clone())
