@@ -1,9 +1,10 @@
 use aws_config::default_provider::credentials::DefaultCredentialsChain;
+use aws_sdk_autoscaling::config::Region as ASRegion;
+use aws_sdk_autoscaling::{Client as ASClient, Config as ASConfig};
 use aws_sdk_ecs::config::Region as EcsRegion;
 use aws_sdk_ecs::{Client as EcsClient, Config as EcsConfig};
 use clap::Parser;
 use log::{debug, info};
-use std::process::Command;
 use tokio;
 
 #[derive(Parser)]
@@ -14,20 +15,11 @@ use tokio;
     about = "Counts wwords frequency in a text file"
 )]
 struct Args {
-    #[clap(short, long, default_value = "auth")]
-    service: String,
-
-    #[clap(short, long, default_value = "app")]
+    #[clap(short, long, default_value = "direc-prod-lb")]
     cluster: String,
 
     #[clap(short, long, default_value = "eu-central-1")]
     region: String,
-
-    #[clap(short, long)]
-    exec: Option<String>,
-
-    #[clap(short, long)]
-    instance: Option<String>,
 }
 
 async fn get_service_arn(
@@ -58,58 +50,39 @@ async fn get_service_arn(
     Err("Service not found".into())
 }
 
-async fn get_task_arn(
-    ecs_client: &EcsClient,
+async fn list_asgs(
+    as_client: &ASClient,
     cluster: &String,
-    service: &String,
-) -> Result<String, Box<dyn std::error::Error>> {
-    let list_tasks_result = ecs_client
-        .list_tasks()
-        .cluster(cluster)
-        .service_name(service)
-        .send()
-        .await?;
-    Ok(list_tasks_result.task_arns.unwrap().pop().unwrap())
+) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    let mut asgs = Vec::new();
+    let mut asg_stream = as_client
+        .describe_auto_scaling_groups()
+        .auto_scaling_group_names(cluster)
+        .max_records(100)
+        .into_paginator()
+        .send();
+
+    while let Some(asg) = asg_stream.next().await {
+        debug!("ASG: {:?}", asg);
+        let asgs = asg.unwrap().auto_scaling_groups.unwrap();
+    }
+    Ok(asgs)
 }
 
-async fn get_task_container_arn(
-    ecs_client: &EcsClient,
-    cluster: &String,
-    task_arn: &String,
-) -> Result<String, Box<dyn std::error::Error>> {
-    let describe_tasks_result = ecs_client
-        .describe_tasks()
-        .cluster(cluster)
-        .tasks(task_arn)
+async fn scale_down_asg(
+    as_client: &ASClient,
+    asg_name: &String,
+    desired_capacity: i32,
+) -> Result<(), Box<dyn std::error::Error>> {
+    as_client
+        .update_auto_scaling_group()
+        .auto_scaling_group_name(asg_name)
+        .desired_capacity(desired_capacity)
+        .min_size(desired_capacity)
+        .max_size(desired_capacity)
         .send()
         .await?;
-    Ok(describe_tasks_result
-        .tasks
-        .expect("No task found!")
-        .pop()
-        .unwrap()
-        .container_instance_arn
-        .expect("No container instance found!"))
-}
-
-async fn get_container_arn(
-    ecs_client: &EcsClient,
-    cluster: &String,
-    container_instance_arn: &String,
-) -> Result<String, Box<dyn std::error::Error>> {
-    let describe_container_instances_result = ecs_client
-        .describe_container_instances()
-        .cluster(cluster)
-        .container_instances(container_instance_arn)
-        .send()
-        .await?;
-    Ok(describe_container_instances_result
-        .container_instances
-        .expect("No container instance found!")
-        .pop()
-        .unwrap()
-        .ec2_instance_id
-        .expect("No EC2 instance found!"))
+Ok(())
 }
 
 #[tokio::main]
@@ -118,78 +91,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let args = Args::parse();
 
-    let region = EcsRegion::new(args.region.clone());
+    let as_region = ASRegion::new(args.region.clone());
+    let as_credentials_provider = DefaultCredentialsChain::builder()
+        .region(as_region.clone())
+        .build()
+        .await;
+    let as_config = ASConfig::builder()
+        .credentials_provider(as_credentials_provider)
+        .region(as_region)
+        .build();
+    let as_client = ASClient::from_conf(as_config);
 
-    let credentials_provider = DefaultCredentialsChain::builder()
-        .region(region.clone())
+    let asgs = list_asgs(&as_client, &args.cluster).await?;
+    info!("ASGs: {:?}", asgs);
+
+    let ecs_region = EcsRegion::new(args.region.clone());
+    let ecs_credentials_provider = DefaultCredentialsChain::builder()
+        .region(ecs_region.clone())
         .build()
         .await;
     let ecs_config = EcsConfig::builder()
-        .credentials_provider(credentials_provider)
-        .region(region.clone())
+        .credentials_provider(ecs_credentials_provider)
+        .region(ecs_region)
         .build();
 
-    debug!(
-        "Cluster: {}, Service: {}, Region: {}.",
-        &args.cluster, &args.service, &args.region
-    );
-
-    let mut command = format!(
-        "command=sudo docker exec -ti $(sudo docker ps -qf name={} | head -n1) /bin/bash",
-        &args.service
-    );
-
-    if let Some(exec) = args.exec {
-        command = format!(
-            "command=sudo docker exec -ti $(sudo docker ps -qf name={} | head -n1) /bin/bash -lc {}",
-            &args.service, exec
-        );
-    }
+    debug!("Cluster: {} Region: {}.", &args.cluster, &args.region);
 
     let ecs_client = EcsClient::from_conf(ecs_config);
-    let instance_id;
-
-    match args.instance {
-        Some(instance) => {
-            command = format!("command=sudo su -");
-            instance_id = instance;
-        }
-        None => {
-            let service_arn = get_service_arn(&ecs_client, &args.cluster, &args.service).await?;
-
-            info!("Service ARN: {}", service_arn);
-
-            let task_arn = get_task_arn(&ecs_client, &args.cluster, &service_arn).await?;
-
-            info!("Task ARN: {}", task_arn);
-
-            let task_instance_arn =
-                get_task_container_arn(&ecs_client, &args.cluster, &task_arn).await?;
-            info!("Task Instance ARN: {:?}", task_instance_arn);
-
-            instance_id = get_container_arn(&ecs_client, &args.cluster, &task_instance_arn).await?;
-            info!("Instance ID: {:?}", instance_id);
-        }
-    }
-
-    println!(
-        "Service {} is running on instance {}",
-        &args.service, instance_id
-    );
-
-    let mut ssm_session = Command::new("aws")
-        .arg("ssm")
-        .arg("start-session")
-        .arg("--target")
-        .arg(instance_id)
-        .arg("--document-name")
-        .arg("AWS-StartInteractiveCommand")
-        .arg("--parameters")
-        .arg(command)
-        .spawn()
-        .expect("Failed to start ssm session");
-
-    let _ = ssm_session.wait().expect("Failed to wait for ssm session");
 
     Ok(())
 }
