@@ -24,34 +24,6 @@ struct Args {
     region: String,
 }
 
-async fn get_service_arn(
-    ecs_client: &EcsClient,
-    cluster: &String,
-    service: &String,
-) -> Result<String, Box<dyn std::error::Error>> {
-    let mut ecs_services_stream = ecs_client
-        .list_services()
-        .cluster(cluster)
-        .max_results(100)
-        .into_paginator()
-        .send();
-
-    while let Some(services) = ecs_services_stream.next().await {
-        debug!("Services: {:?}", services);
-        let service_arn = services
-            .unwrap()
-            .service_arns
-            .unwrap()
-            .into_iter()
-            .find(|arn| arn.contains(service));
-        if let Some(service_arn) = service_arn {
-            debug!("Inside get_service_arn Service ARN: {:?}", service_arn);
-            return Ok(service_arn);
-        }
-    }
-    Err("Service not found".into())
-}
-
 async fn list_asgs(
     as_client: &ASClient,
     cluster: &String,
@@ -68,14 +40,16 @@ async fn list_asgs(
         debug!("ASG: {:?}", asg);
         for group in asg.unwrap().auto_scaling_groups.unwrap() {
             if group
-                .auto_scaling_group_name.clone()
+                .auto_scaling_group_name
+                .clone()
                 .unwrap()
                 .contains(cluster)
-               &&
-               group 
-                .desired_capacity.clone()
-                .unwrap()
-                .gt(&desired_capacity){
+                && group
+                    .desired_capacity
+                    .clone()
+                    .unwrap()
+                    .gt(&desired_capacity)
+            {
                 asgs.push(group.auto_scaling_group_name.unwrap());
             }
         }
@@ -96,7 +70,7 @@ async fn scale_down_asg(
         .max_size(desired_capacity)
         .send()
         .await?;
-Ok(())
+    Ok(())
 }
 
 async fn list_replication_groups(
@@ -114,14 +88,12 @@ async fn list_replication_groups(
         debug!("Replication Groups: {:?}", replication_group);
         for group in replication_group.unwrap().replication_groups.unwrap() {
             if group
-                .replication_group_id.clone()
+                .replication_group_id
+                .clone()
                 .unwrap()
                 .contains(cluster)
-               && group
-                .status.clone()
-                .unwrap()
-                .contains("available")
-                {
+                && group.status.clone().unwrap().contains("available")
+            {
                 replication_groups.push(group.replication_group_id.unwrap());
             }
         }
@@ -139,6 +111,32 @@ async fn delete_replication_group(
         .send()
         .await?;
     Ok(())
+}
+
+async fn get_service_arns(
+    ecs_client: &EcsClient,
+    cluster: &String,
+    desired_count: i32,
+) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    let mut service_arns: Vec<String> = Vec::new();
+    let mut ecs_services_stream = ecs_client
+        .list_services()
+        .cluster(cluster)
+        .max_results(100)
+        .into_paginator()
+        .send();
+
+    while let Some(services) = ecs_services_stream.next().await {
+        debug!("Services: {:?}", services);
+        for service_arn in services.unwrap().service_arns.unwrap() {
+            debug!("Service ARN: {:?}", service_arn);
+            if service_arn.contains(cluster) {
+                debug!("Service ARN: {}", service_arn);
+                service_arns.push(service_arn);
+            }
+        }
+    }
+    Ok(service_arns)
 }
 
 #[tokio::main]
@@ -193,9 +191,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .region(ecs_region)
         .build();
 
-    debug!("Cluster: {} Region: {}.", &args.cluster, &args.region);
-
     let ecs_client = EcsClient::from_conf(ecs_config);
+
+    let services = get_service_arns(&ecs_client, &args.cluster, 0).await?;
+    info!("Services: {:?}", services);
+
+    debug!("Cluster: {} Region: {}.", &args.cluster, &args.region);
 
     Ok(())
 }
