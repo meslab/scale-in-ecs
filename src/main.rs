@@ -22,6 +22,9 @@ struct Args {
 
     #[clap(short, long, default_value = "false")]
     delete: bool,
+
+    #[clap(short, long, default_value = "false")]
+    scaledown: bool,
 }
 
 #[tokio::main]
@@ -34,8 +37,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let asgs = autoscaling::list_asgs(&as_client, &args.cluster, 0).await?;
     info!("ASGs: {:?}", asgs);
 
-    for asg in asgs {
-        autoscaling::scale_down_asg(&as_client, &asg, 0).await?;
+    if args.scaledown || args.delete {
+        for asg in &asgs {
+            autoscaling::scale_down_asg(&as_client, &asg, 0).await?;
+        }
     }
 
     let elc_client = elasticache::initialize_client(&args.region).await;
@@ -43,7 +48,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         elasticache::list_replication_groups(&elc_client, &args.cluster).await?;
     info!("Replication Groups: {:?}", replication_groups);
 
-    if args.delete {
+    if args.scaledown || args.delete {
         for replication_group in replication_groups {
             elasticache::delete_replication_group(&elc_client, &replication_group).await?;
         }
@@ -53,8 +58,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let services = ecs::get_service_arns(&ecs_client, &args.cluster, 0).await?;
     info!("Services: {:?}", services);
 
-    for service in &services {
-        ecs::scale_down_service(&ecs_client, &args.cluster, &service, 0).await?;
+    if args.scaledown || args.delete {
+        for service in &services {
+            ecs::scale_down_service(&ecs_client, &args.cluster, &service, 0).await?;
+        }
     }
 
     if args.delete {
