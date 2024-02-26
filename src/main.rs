@@ -48,6 +48,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("Services: {:?}", services);
 
     let rds_client = rds::initialize_client(&args.region).await;
+    let db_instances = rds::list_db_instances(&rds_client, &args.cluster).await?;
+    info!("DB Instances: {:?}", db_instances);
 
     if args.scaledown || args.delete {
         for asg in &asgs {
@@ -55,6 +57,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         for service in &services {
             ecs::scale_down_service(&ecs_client, &args.cluster, &service, 0).await?;
+        }
+        for db_instance in &db_instances {
+            rds::stop_db_instance(&rds_client, &db_instance).await?;
         }
     }
 
@@ -64,6 +69,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         for service in &services {
             ecs::delete_service(&ecs_client, &args.cluster, &service).await?;
+        }
+        for db_instance in &db_instances {
+            rds::disable_deletion_protection(&rds_client, &db_instance).await?;
+            rds::delete_db_instance(&rds_client, &db_instance).await?;
         }
     }
 

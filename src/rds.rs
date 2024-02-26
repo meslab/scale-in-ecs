@@ -16,6 +16,78 @@ pub async fn initialize_client(region: &str) -> Client {
     Client::from_conf(config)
 }
 
+pub async fn list_db_instances(
+    client: &Client,
+    cluster: &String,
+) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    let mut db_instances = Vec::new();
+    let mut db_instances_stream = client
+        .describe_db_instances()
+        .max_records(100)
+        .into_paginator()
+        .send();
+
+    while let Some(db_instance) = db_instances_stream.next().await {
+        debug!("DB Instances: {:?}", db_instance);
+        for instance in db_instance.unwrap().db_instances.unwrap() {
+            if instance
+                .db_instance_identifier
+                .clone()
+                .unwrap()
+                .contains(cluster)
+                && instance
+                    .db_instance_status
+                    .clone()
+                    .unwrap()
+                    .contains("available")
+            {
+                db_instances.push(instance.db_instance_identifier.unwrap());
+            }
+        }
+    }
+    Ok(db_instances)
+}
+
+pub async fn disable_deletion_protection(
+    client: &Client,
+    db_instance_id: &String,
+) -> Result<(), Box<dyn std::error::Error>> {
+    client
+        .modify_db_instance()
+        .db_instance_identifier(db_instance_id)
+        .set_deletion_protection(Some(false))
+        .apply_immediately(true)
+        .send()
+        .await?;
+    Ok(())
+}
+
+pub async fn delete_db_instance(
+    client: &Client,
+    db_instance_id: &String,
+) -> Result<(), Box<dyn std::error::Error>> {
+    client
+        .delete_db_instance()
+        .db_instance_identifier(db_instance_id)
+        .skip_final_snapshot(true)
+        .send()
+        .await?;
+    Ok(())
+}
+
+pub async fn stop_db_instance(
+    client: &Client,
+    db_instance_id: &String,
+) -> Result<(), Box<dyn std::error::Error>> {
+    client
+        .stop_db_instance()
+        .db_instance_identifier(db_instance_id)
+        .db_instance_identifier(db_instance_id)
+        .send()
+        .await?;
+    Ok(())
+}
+
 //pub async fn list_replication_groups(
 //    client: &Client,
 //    cluster: &String,
