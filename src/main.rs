@@ -11,7 +11,7 @@ use tokio;
 #[clap(
     version = "v0.0.1",
     author = "Anton Sidorov tonysidrock@gmail.com",
-    about = "Counts wwords frequency in a text file"
+    about = "Scale down ECS cluster",
 )]
 struct Args {
     #[clap(short, long, default_value = "direc-prod-lb")]
@@ -19,6 +19,9 @@ struct Args {
 
     #[clap(short, long, default_value = "eu-central-1")]
     region: String,
+
+    #[clap(short, long, default_value = "false")]
+    delete: bool,
 }
 
 #[tokio::main]
