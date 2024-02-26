@@ -10,7 +10,7 @@ use tokio;
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 #[clap(
-    version = "v0.0.1",
+    version = "v0.0.2",
     author = "Anton Sidorov tonysidrock@gmail.com",
     about = "Scale down ECS cluster"
 )]
