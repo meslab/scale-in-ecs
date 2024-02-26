@@ -1,4 +1,4 @@
-# AWS SSM session
+# Scales in ECS cluster including its Elasticashe and RDS
 
 
 ## Installation 
