@@ -27,7 +27,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let args = Args::parse();
 
-    let as_client = autoscaling::initialize_as_client(&args.region).await;
+    let as_client = autoscaling::initialize_client(&args.region).await;
     let asgs = autoscaling::list_asgs(&as_client, &args.cluster, 0).await?;
     info!("ASGs: {:?}", asgs);
 
@@ -35,7 +35,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         autoscaling::scale_down_asg(&as_client, &asg, 0).await?;
     }
 
-    let elc_client = elasticache::initialize_elc_client(&args.region).await;
+    let elc_client = elasticache::initialize_client(&args.region).await;
     let replication_groups =
         elasticache::list_replication_groups(&elc_client, &args.cluster).await?;
     info!("Replication Groups: {:?}", replication_groups);
@@ -44,7 +44,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         elasticache::delete_replication_group(&elc_client, &replication_group).await?;
     }
 
-    let ecs_client = ecs::initialize_ecs_client(&args.region).await;
+    let ecs_client = ecs::initialize_client(&args.region).await;
     let services = ecs::get_service_arns(&ecs_client, &args.cluster, 0).await?;
     info!("Services: {:?}", services);
 
