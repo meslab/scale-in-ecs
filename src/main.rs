@@ -43,8 +43,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         elasticache::list_replication_groups(&elc_client, &args.cluster).await?;
     info!("Replication Groups: {:?}", replication_groups);
 
-    for replication_group in replication_groups {
-        elasticache::delete_replication_group(&elc_client, &replication_group).await?;
+    if args.delete {
+        for replication_group in replication_groups {
+            elasticache::delete_replication_group(&elc_client, &replication_group).await?;
+        }
     }
 
     let ecs_client = ecs::initialize_client(&args.region).await;
