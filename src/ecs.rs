@@ -80,3 +80,17 @@ pub async fn scale_down_service(
         .await?;
     Ok(())
 }
+
+pub async fn delete_service(
+    client: &EcsClient,
+    cluster: &String,
+    service_arn: &String,
+) -> Result<(), Box<dyn std::error::Error>> {
+    client
+        .delete_service()
+        .cluster(cluster)
+        .service(service_arn)
+        .send()
+        .await?;
+    Ok(())
+}

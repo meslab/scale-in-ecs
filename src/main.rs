@@ -11,7 +11,7 @@ use tokio;
 #[clap(
     version = "v0.0.1",
     author = "Anton Sidorov tonysidrock@gmail.com",
-    about = "Scale down ECS cluster",
+    about = "Scale down ECS cluster"
 )]
 struct Args {
     #[clap(short, long, default_value = "direc-prod-lb")]
@@ -51,8 +51,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let services = ecs::get_service_arns(&ecs_client, &args.cluster, 0).await?;
     info!("Services: {:?}", services);
 
-    for service in services {
+    for service in &services {
         ecs::scale_down_service(&ecs_client, &args.cluster, &service, 0).await?;
+    }
+
+    if args.delete {
+        for service in &services {
+            ecs::delete_service(&ecs_client, &args.cluster, &service).await?;
+        }
     }
 
     debug!("Cluster: {} Region: {}.", &args.cluster, &args.region);
