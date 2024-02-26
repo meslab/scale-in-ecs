@@ -192,6 +192,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "aws-sdk-elasticache"
+version = "1.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7312659e74508ee0eee5cab60aafd7bb06ed5833b5d4779fa3dd856367d4b673"
+dependencies = [
+ "aws-credential-types",
+ "aws-runtime",
+ "aws-smithy-async",
+ "aws-smithy-http",
+ "aws-smithy-json",
+ "aws-smithy-query",
+ "aws-smithy-runtime",
+ "aws-smithy-runtime-api",
+ "aws-smithy-types",
+ "aws-smithy-xml",
+ "aws-types",
+ "http 0.2.11",
+ "once_cell",
+ "regex-lite",
+ "tracing",
+]
+
+[[package]]
 name = "aws-sdk-sso"
 version = "1.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1182,6 +1205,7 @@ dependencies = [
  "aws-config",
  "aws-sdk-autoscaling",
  "aws-sdk-ecs",
+ "aws-sdk-elasticache",
  "clap",
  "env_logger",
  "log",
