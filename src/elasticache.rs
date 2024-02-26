@@ -3,7 +3,6 @@ use aws_sdk_elasticache::config::Region;
 use aws_sdk_elasticache::{Client, Config};
 use log::debug;
 
-
 pub async fn initialize_client(region: &str) -> Client {
     let region = Region::new(region.to_owned());
     let credentials_provider = DefaultCredentialsChain::builder()
@@ -56,4 +55,3 @@ pub async fn delete_replication_group(
         .await?;
     Ok(())
 }
-
