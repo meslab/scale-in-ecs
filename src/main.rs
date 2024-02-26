@@ -132,11 +132,50 @@ async fn get_service_arns(
             debug!("Service ARN: {:?}", service_arn);
             if service_arn.contains(cluster) {
                 debug!("Service ARN: {}", service_arn);
-                service_arns.push(service_arn);
+                match ecs_client
+                    .describe_services()
+                    .cluster(cluster)
+                    .services(service_arn.clone())
+                    .send()
+                    .await
+                {
+                    Ok(service) => {
+                        debug!("Service: {:?}", service);
+                        if service
+                            .services
+                            .unwrap()
+                            .first()
+                            .unwrap()
+                            .desired_count
+                            .gt(&desired_count)
+                        {
+                            service_arns.push(service_arn);
+                        }
+                    }
+                    Err(e) => {
+                        debug!("Error: {:?}", e);
+                    }
+                }
             }
         }
     }
     Ok(service_arns)
+}
+
+async fn scale_down_service(
+    ecs_client: &EcsClient,
+    cluster: &String,
+    service_arn: &String,
+    desired_count: i32,
+) -> Result<(), Box<dyn std::error::Error>> {
+    ecs_client
+        .update_service()
+        .cluster(cluster)
+        .service(service_arn)
+        .desired_count(desired_count)
+        .send()
+        .await?;
+    Ok(())
 }
 
 #[tokio::main]
@@ -195,6 +234,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let services = get_service_arns(&ecs_client, &args.cluster, 0).await?;
     info!("Services: {:?}", services);
+
+    for service in services {
+        scale_down_service(&ecs_client, &args.cluster, &service, 0).await?;
+    }
 
     debug!("Cluster: {} Region: {}.", &args.cluster, &args.region);
 
