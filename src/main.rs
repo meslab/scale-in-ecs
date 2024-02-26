@@ -37,34 +37,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let asgs = autoscaling::list_asgs(&as_client, &args.cluster, 0).await?;
     info!("ASGs: {:?}", asgs);
 
-    if args.scaledown || args.delete {
-        for asg in &asgs {
-            autoscaling::scale_down_asg(&as_client, &asg, 0).await?;
-        }
-    }
-
     let elc_client = elasticache::initialize_client(&args.region).await;
     let replication_groups =
         elasticache::list_replication_groups(&elc_client, &args.cluster).await?;
     info!("Replication Groups: {:?}", replication_groups);
-
-    if args.scaledown || args.delete {
-        for replication_group in replication_groups {
-            elasticache::delete_replication_group(&elc_client, &replication_group).await?;
-        }
-    }
 
     let ecs_client = ecs::initialize_client(&args.region).await;
     let services = ecs::get_service_arns(&ecs_client, &args.cluster, 0).await?;
     info!("Services: {:?}", services);
 
     if args.scaledown || args.delete {
+        for asg in &asgs {
+            autoscaling::scale_down_asg(&as_client, &asg, 0).await?;
+        }
         for service in &services {
             ecs::scale_down_service(&ecs_client, &args.cluster, &service, 0).await?;
         }
     }
 
     if args.delete {
+        for replication_group in replication_groups {
+            elasticache::delete_replication_group(&elc_client, &replication_group).await?;
+        }
         for service in &services {
             ecs::delete_service(&ecs_client, &args.cluster, &service).await?;
         }
