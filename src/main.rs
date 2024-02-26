@@ -52,14 +52,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("DB Instances: {:?}", db_instances);
 
     if args.scaledown || args.delete {
+        if replication_groups.len() > 0 {
+            println!("Deleting elasticache replication groups.");
+        }
         for replication_group in replication_groups {
             elasticache::delete_replication_group(&elc_client, &replication_group).await?;
+        }
+        if asgs.len() > 0 {
+            println!("Scaling down ASGs.");
         }
         for asg in &asgs {
             autoscaling::scale_down_asg(&as_client, &asg, 0).await?;
         }
+        if services.len() > 0 {
+            println!("Scaling down ECS services.");
+        }
         for service in &services {
             ecs::scale_down_service(&ecs_client, &args.cluster, &service, 0).await?;
+        }
+        if db_instances.len() > 0 {
+            println!("Stopping RDS instances.");
         }
         for db_instance in &db_instances {
             rds::stop_db_instance(&rds_client, &db_instance).await?;
@@ -67,8 +79,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if args.delete {
+        if services.len() > 0 {
+            println!("Deleting ECS services.");
+        }
         for service in &services {
             ecs::delete_service(&ecs_client, &args.cluster, &service).await?;
+        }
+        if db_instances.len() > 0 {
+            println!("Deleting RDS.");
         }
         for db_instance in &db_instances {
             rds::disable_deletion_protection(&rds_client, &db_instance).await?;
