@@ -3,6 +3,8 @@ use aws_sdk_autoscaling::config::Region as ASRegion;
 use aws_sdk_autoscaling::{Client as ASClient, Config as ASConfig};
 use aws_sdk_ecs::config::Region as EcsRegion;
 use aws_sdk_ecs::{Client as EcsClient, Config as EcsConfig};
+use aws_sdk_elasticache::config::Region as ElcRegion;
+use aws_sdk_elasticache::{Client as ElcClient, Config as ElcConfig};
 use clap::Parser;
 use log::{debug, info};
 use tokio;
@@ -53,6 +55,7 @@ async fn get_service_arn(
 async fn list_asgs(
     as_client: &ASClient,
     cluster: &String,
+    desired_capacity: i32,
 ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
     let mut asgs = Vec::new();
     let mut asg_stream = as_client
@@ -68,7 +71,11 @@ async fn list_asgs(
                 .auto_scaling_group_name.clone()
                 .unwrap()
                 .contains(cluster)
-                {
+               &&
+               group 
+                .desired_capacity.clone()
+                .unwrap()
+                .gt(&desired_capacity){
                 asgs.push(group.auto_scaling_group_name.unwrap());
             }
         }
@@ -92,6 +99,48 @@ async fn scale_down_asg(
 Ok(())
 }
 
+async fn list_replication_groups(
+    elc_client: &ElcClient,
+    cluster: &String,
+) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    let mut replication_groups = Vec::new();
+    let mut replication_groups_stream = elc_client
+        .describe_replication_groups()
+        .max_records(100)
+        .into_paginator()
+        .send();
+
+    while let Some(replication_group) = replication_groups_stream.next().await {
+        debug!("Replication Groups: {:?}", replication_group);
+        for group in replication_group.unwrap().replication_groups.unwrap() {
+            if group
+                .replication_group_id.clone()
+                .unwrap()
+                .contains(cluster)
+               && group
+                .status.clone()
+                .unwrap()
+                .contains("available")
+                {
+                replication_groups.push(group.replication_group_id.unwrap());
+            }
+        }
+    }
+    Ok(replication_groups)
+}
+
+async fn delete_replication_group(
+    elc_client: &ElcClient,
+    replication_group_id: &String,
+) -> Result<(), Box<dyn std::error::Error>> {
+    elc_client
+        .delete_replication_group()
+        .replication_group_id(replication_group_id)
+        .send()
+        .await?;
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
@@ -109,11 +158,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build();
     let as_client = ASClient::from_conf(as_config);
 
-    let asgs = list_asgs(&as_client, &args.cluster).await?;
+    let asgs = list_asgs(&as_client, &args.cluster, 0).await?;
     info!("ASGs: {:?}", asgs);
 
     for asg in asgs {
         scale_down_asg(&as_client, &asg, 0).await?;
+    }
+
+    let elc_region = ElcRegion::new(args.region.clone());
+    let elc_credentials_provider = DefaultCredentialsChain::builder()
+        .region(elc_region.clone())
+        .build()
+        .await;
+    let elc_config = ElcConfig::builder()
+        .credentials_provider(elc_credentials_provider)
+        .region(elc_region)
+        .build();
+    let elc_client = ElcClient::from_conf(elc_config);
+
+    let replication_groups = list_replication_groups(&elc_client, &args.cluster).await?;
+    info!("Replication Groups: {:?}", replication_groups);
+
+    for replication_group in replication_groups {
+        delete_replication_group(&elc_client, &replication_group).await?;
     }
 
     let ecs_region = EcsRegion::new(args.region.clone());
