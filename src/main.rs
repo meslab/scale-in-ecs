@@ -1,6 +1,7 @@
 mod autoscaling;
 mod ecs;
 mod elasticache;
+mod rds;
 
 use clap::Parser;
 use log::{debug, info};
@@ -45,6 +46,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let ecs_client = ecs::initialize_client(&args.region).await;
     let services = ecs::get_service_arns(&ecs_client, &args.cluster, 0).await?;
     info!("Services: {:?}", services);
+
+    let rds_client = rds::initialize_client(&args.region).await;
 
     if args.scaledown || args.delete {
         for asg in &asgs {
