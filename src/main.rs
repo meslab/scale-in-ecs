@@ -52,6 +52,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("DB Instances: {:?}", db_instances);
 
     if args.scaledown || args.delete {
+        for replication_group in replication_groups {
+            elasticache::delete_replication_group(&elc_client, &replication_group).await?;
+        }
         for asg in &asgs {
             autoscaling::scale_down_asg(&as_client, &asg, 0).await?;
         }
@@ -64,9 +67,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if args.delete {
-        for replication_group in replication_groups {
-            elasticache::delete_replication_group(&elc_client, &replication_group).await?;
-        }
         for service in &services {
             ecs::delete_service(&ecs_client, &args.cluster, &service).await?;
         }
