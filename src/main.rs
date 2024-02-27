@@ -1,6 +1,7 @@
 mod autoscaling;
 mod ecs;
 mod elasticache;
+mod elbv2;
 mod rds;
 
 use clap::Parser;
@@ -51,6 +52,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let db_instances = rds::list_db_instances(&rds_client, &args.cluster).await?;
     info!("DB Instances: {:?}", db_instances);
 
+    let elbv2_client = elbv2::initialize_client(&args.region).await;
+    let load_balancers = elbv2::list_load_balancers(&elbv2_client, &args.cluster).await?;
+    info!("Load Balancers: {:?}", load_balancers);
+
     if args.scaledown || args.delete {
         if replication_groups.len() > 0 {
             println!("Deleting elasticache replication groups.");
@@ -91,6 +96,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         for db_instance in &db_instances {
             rds::disable_deletion_protection(&rds_client, &db_instance).await?;
             rds::delete_db_instance(&rds_client, &db_instance).await?;
+        }
+        if load_balancers.len() > 0 {
+            println!("Deleting load balancers.");
+        }
+        for load_balancer in &load_balancers {
+            elbv2::delete_load_balancer(&elbv2_client, &load_balancer).await?;
         }
     }
 
