@@ -215,6 +215,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "aws-sdk-elasticloadbalancingv2"
+version = "1.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c54ae20a7ab59ffd913c629dc820715dd05f2a85879b4309b44082e6ad95bace"
+dependencies = [
+ "aws-credential-types",
+ "aws-runtime",
+ "aws-smithy-async",
+ "aws-smithy-http",
+ "aws-smithy-json",
+ "aws-smithy-query",
+ "aws-smithy-runtime",
+ "aws-smithy-runtime-api",
+ "aws-smithy-types",
+ "aws-smithy-xml",
+ "aws-types",
+ "http 0.2.11",
+ "once_cell",
+ "regex-lite",
+ "tracing",
+]
+
+[[package]]
 name = "aws-sdk-rds"
 version = "1.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1227,6 +1250,7 @@ dependencies = [
  "aws-sdk-autoscaling",
  "aws-sdk-ecs",
  "aws-sdk-elasticache",
+ "aws-sdk-elasticloadbalancingv2",
  "aws-sdk-rds",
  "clap",
  "env_logger",
