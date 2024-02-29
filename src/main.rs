@@ -22,6 +22,9 @@ struct Args {
     #[clap(short, long, default_value = "eu-central-1")]
     region: String,
 
+    #[clap(short, long, default_value = "default")]
+    profile: String,
+
     #[clap(short, long, default_value = "false")]
     delete: bool,
 
@@ -35,24 +38,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let args = Args::parse();
 
-    let as_client = autoscaling::initialize_client(&args.region).await;
+    let as_client = autoscaling::initialize_client(&args.region, &args.profile).await;
     let asgs = autoscaling::list_asgs(&as_client, &args.cluster, 0).await?;
     info!("ASGs: {:?}", asgs);
 
-    let elc_client = elasticache::initialize_client(&args.region).await;
+    let elc_client = elasticache::initialize_client(&args.region, &args.profile).await;
     let replication_groups =
         elasticache::list_replication_groups(&elc_client, &args.cluster).await?;
     info!("Replication Groups: {:?}", replication_groups);
 
-    let ecs_client = ecs::initialize_client(&args.region).await;
+    let ecs_client = ecs::initialize_client(&args.region, &args.profile).await;
     let services = ecs::get_service_arns(&ecs_client, &args.cluster, 0).await?;
     info!("Services: {:?}", services);
 
-    let rds_client = rds::initialize_client(&args.region).await;
+    let rds_client = rds::initialize_client(&args.region, &args.profile).await;
     let db_instances = rds::list_db_instances(&rds_client, &args.cluster).await?;
     info!("DB Instances: {:?}", db_instances);
 
-    let elbv2_client = elbv2::initialize_client(&args.region).await;
+    let elbv2_client = elbv2::initialize_client(&args.region, &args.profile).await;
     let load_balancers = elbv2::list_load_balancers(&elbv2_client, &args.cluster).await?;
     info!("Load Balancers: {:?}", load_balancers);
 

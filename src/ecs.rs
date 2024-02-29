@@ -1,23 +1,24 @@
 use aws_config::default_provider::credentials::DefaultCredentialsChain;
-use aws_sdk_ecs::config::Region as EcsRegion;
-use aws_sdk_ecs::{Client as EcsClient, Config as EcsConfig};
+use aws_sdk_ecs::config::Region;
+use aws_sdk_ecs::{Client, Config};
 use log::debug;
 
-pub async fn initialize_client(region: &str) -> EcsClient {
-    let region = EcsRegion::new(region.to_owned());
+pub async fn initialize_client(region: &str, profile: &str) -> Client {
+    let region = Region::new(region.to_owned());
     let credentials_provider = DefaultCredentialsChain::builder()
         .region(region.clone())
+        .profile_name(profile)
         .build()
         .await;
-    let config = EcsConfig::builder()
+    let config = Config::builder()
         .credentials_provider(credentials_provider)
         .region(region)
         .build();
-    EcsClient::from_conf(config)
+    Client::from_conf(config)
 }
 
 pub async fn get_service_arns(
-    client: &EcsClient,
+    client: &Client,
     cluster: &String,
     desired_count: i32,
 ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
@@ -66,7 +67,7 @@ pub async fn get_service_arns(
 }
 
 pub async fn scale_down_service(
-    client: &EcsClient,
+    client: &Client,
     cluster: &String,
     service_arn: &String,
     desired_count: i32,
@@ -82,7 +83,7 @@ pub async fn scale_down_service(
 }
 
 pub async fn delete_service(
-    client: &EcsClient,
+    client: &Client,
     cluster: &String,
     service_arn: &String,
 ) -> Result<(), Box<dyn std::error::Error>> {
