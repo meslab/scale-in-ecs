@@ -36,11 +36,16 @@ pub async fn list_db_instances(
                 .clone()
                 .unwrap()
                 .contains(cluster)
-                && instance
+                && (instance
                     .db_instance_status
                     .clone()
                     .unwrap()
                     .contains("available")
+                    || instance
+                        .db_instance_status
+                        .clone()
+                        .unwrap()
+                        .contains("stopped"))
             {
                 db_instances.push(instance.db_instance_identifier.unwrap());
             }
