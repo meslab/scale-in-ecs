@@ -4,22 +4,20 @@ use aws_sdk_elasticache::{Client, Config};
 use log::debug;
 
 pub async fn initialize_client(region: &str, profile: &str) -> Client {
-    let region = Region::new(region.to_owned());
     let credentials_provider = DefaultCredentialsChain::builder()
-        .region(region.clone())
         .profile_name(profile)
         .build()
         .await;
     let config = Config::builder()
         .credentials_provider(credentials_provider)
-        .region(region)
+        .region(Region::new(region.to_owned()))
         .build();
     Client::from_conf(config)
 }
 
 pub async fn list_replication_groups(
     client: &Client,
-    cluster: &String,
+    cluster: &str,
 ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
     let mut replication_groups = Vec::new();
     let mut replication_groups_stream = client
@@ -33,10 +31,10 @@ pub async fn list_replication_groups(
         for group in replication_group.unwrap().replication_groups.unwrap() {
             if group
                 .replication_group_id
-                .clone()
+                .as_ref()
                 .unwrap()
                 .contains(cluster)
-                && group.status.clone().unwrap().contains("available")
+                && group.status.unwrap().contains("available")
             {
                 replication_groups.push(group.replication_group_id.unwrap());
             }
@@ -47,7 +45,7 @@ pub async fn list_replication_groups(
 
 pub async fn delete_replication_group(
     client: &Client,
-    replication_group_id: &String,
+    replication_group_id: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     client
         .delete_replication_group()

@@ -4,22 +4,20 @@ use aws_sdk_ecs::{Client, Config};
 use log::debug;
 
 pub async fn initialize_client(region: &str, profile: &str) -> Client {
-    let region = Region::new(region.to_owned());
     let credentials_provider = DefaultCredentialsChain::builder()
-        .region(region.clone())
         .profile_name(profile)
         .build()
         .await;
     let config = Config::builder()
         .credentials_provider(credentials_provider)
-        .region(region)
+        .region(Region::new(region.to_owned()))
         .build();
     Client::from_conf(config)
 }
 
 pub async fn get_service_arns(
     client: &Client,
-    cluster: &String,
+    cluster: &str,
     desired_count: i32,
 ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
     let mut service_arns: Vec<String> = Vec::new();
@@ -39,7 +37,7 @@ pub async fn get_service_arns(
                 match client
                     .describe_services()
                     .cluster(cluster)
-                    .services(service_arn.clone())
+                    .services(&service_arn)
                     .send()
                     .await
                 {
@@ -68,8 +66,8 @@ pub async fn get_service_arns(
 
 pub async fn scale_down_service(
     client: &Client,
-    cluster: &String,
-    service_arn: &String,
+    cluster: &str,
+    service_arn: &str,
     desired_count: i32,
 ) -> Result<(), Box<dyn std::error::Error>> {
     client
@@ -84,8 +82,8 @@ pub async fn scale_down_service(
 
 pub async fn delete_service(
     client: &Client,
-    cluster: &String,
-    service_arn: &String,
+    cluster: &str,
+    service_arn: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     client
         .delete_service()

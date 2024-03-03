@@ -4,22 +4,20 @@ use aws_sdk_elasticloadbalancingv2::{Client, Config};
 use log::debug;
 
 pub async fn initialize_client(region: &str, profile: &str) -> Client {
-    let region = Region::new(region.to_owned());
     let credentials_provider = DefaultCredentialsChain::builder()
-        .region(region.clone())
         .profile_name(profile)
         .build()
         .await;
     let config = Config::builder()
         .credentials_provider(credentials_provider)
-        .region(region)
+        .region(Region::new(region.to_owned()))
         .build();
     Client::from_conf(config)
 }
 
 pub async fn list_load_balancers(
     client: &Client,
-    cluster: &String,
+    cluster: &str,
 ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
     let mut load_balancers = Vec::new();
     let mut load_balancers_stream = client.describe_load_balancers().into_paginator().send();
@@ -27,7 +25,7 @@ pub async fn list_load_balancers(
     while let Some(load_balancer) = load_balancers_stream.next().await {
         debug!("Load Balancers: {:?}", load_balancer);
         for lb in load_balancer.unwrap().load_balancers.unwrap() {
-            if lb.load_balancer_name.clone().unwrap().contains(cluster) {
+            if lb.load_balancer_name.unwrap().contains(cluster) {
                 load_balancers.push(lb.load_balancer_arn.unwrap());
             }
         }
@@ -37,7 +35,7 @@ pub async fn list_load_balancers(
 
 pub async fn delete_load_balancer(
     client: &Client,
-    load_balancer_arn: &String,
+    load_balancer_arn: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     client
         .delete_load_balancer()
