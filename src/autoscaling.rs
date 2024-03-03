@@ -4,22 +4,20 @@ use aws_sdk_autoscaling::{Client, Config};
 use log::debug;
 
 pub async fn initialize_client(region: &str, profile: &str) -> Client {
-    let region = Region::new(region.to_owned());
     let credentials_provider = DefaultCredentialsChain::builder()
-        .region(region.clone())
         .profile_name(profile)
         .build()
         .await;
     let config = Config::builder()
         .credentials_provider(credentials_provider)
-        .region(region)
+        .region(Region::new(region.to_owned()))
         .build();
     Client::from_conf(config)
 }
 
 pub async fn list_asgs(
     client: &Client,
-    cluster: &String,
+    cluster: &str,
     desired_capacity: i32,
 ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
     let mut asgs = Vec::new();
@@ -52,7 +50,7 @@ pub async fn list_asgs(
 
 pub async fn scale_down_asg(
     client: &Client,
-    asg_name: &String,
+    asg_name: &str,
     desired_capacity: i32,
 ) -> Result<(), Box<dyn std::error::Error>> {
     client

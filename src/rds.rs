@@ -4,22 +4,20 @@ use aws_sdk_rds::{Client, Config};
 use log::debug;
 
 pub async fn initialize_client(region: &str, profile: &str) -> Client {
-    let region = Region::new(region.to_owned());
     let credentials_provider = DefaultCredentialsChain::builder()
-        .region(region.clone())
         .profile_name(profile)
         .build()
         .await;
     let config = Config::builder()
         .credentials_provider(credentials_provider)
-        .region(region)
+        .region(Region::new(region.to_owned()))
         .build();
     Client::from_conf(config)
 }
 
 pub async fn list_db_instances(
     client: &Client,
-    cluster: &String,
+    cluster: &str,
 ) -> Result<Vec<String>, Box<dyn std::error::Error>> {
     let mut db_instances = Vec::new();
     let mut db_instances_stream = client
@@ -56,7 +54,7 @@ pub async fn list_db_instances(
 
 pub async fn disable_deletion_protection(
     client: &Client,
-    db_instance_id: &String,
+    db_instance_id: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     client
         .modify_db_instance()
@@ -70,7 +68,7 @@ pub async fn disable_deletion_protection(
 
 pub async fn delete_db_instance(
     client: &Client,
-    db_instance_id: &String,
+    db_instance_id: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     client
         .delete_db_instance()
@@ -83,7 +81,7 @@ pub async fn delete_db_instance(
 
 pub async fn stop_db_instance(
     client: &Client,
-    db_instance_id: &String,
+    db_instance_id: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     client
         .stop_db_instance()
