@@ -37,7 +37,7 @@ pub async fn get_service_arns(
                 match client
                     .describe_services()
                     .cluster(cluster)
-                    .services(service_arn.clone())
+                    .services(&service_arn)
                     .send()
                     .await
                 {

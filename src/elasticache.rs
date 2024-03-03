@@ -31,10 +31,10 @@ pub async fn list_replication_groups(
         for group in replication_group.unwrap().replication_groups.unwrap() {
             if group
                 .replication_group_id
-                .clone()
+                .as_ref()
                 .unwrap()
                 .contains(cluster)
-                && group.status.clone().unwrap().contains("available")
+                && group.status.unwrap().contains("available")
             {
                 replication_groups.push(group.replication_group_id.unwrap());
             }

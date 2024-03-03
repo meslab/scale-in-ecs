@@ -25,7 +25,7 @@ pub async fn list_load_balancers(
     while let Some(load_balancer) = load_balancers_stream.next().await {
         debug!("Load Balancers: {:?}", load_balancer);
         for lb in load_balancer.unwrap().load_balancers.unwrap() {
-            if lb.load_balancer_name.clone().unwrap().contains(cluster) {
+            if lb.load_balancer_name.unwrap().contains(cluster) {
                 load_balancers.push(lb.load_balancer_arn.unwrap());
             }
         }

@@ -32,12 +32,11 @@ pub async fn list_asgs(
         for group in asg.unwrap().auto_scaling_groups.unwrap() {
             if group
                 .auto_scaling_group_name
-                .clone()
+                .as_ref()
                 .unwrap()
                 .contains(cluster)
                 && group
                     .desired_capacity
-                    .clone()
                     .unwrap()
                     .gt(&desired_capacity)
             {
