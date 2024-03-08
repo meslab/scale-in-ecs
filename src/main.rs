@@ -1,9 +1,6 @@
-mod autoscaling;
-mod ecs;
-mod elasticache;
-mod elbv2;
-mod rds;
-
+use scale_in_ecs::{
+    autoscaling, ecs, elasticache, elbv2, rds,
+};
 use clap::Parser;
 use log::{debug, info};
 use tokio;
