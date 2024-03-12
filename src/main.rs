@@ -1,19 +1,16 @@
-use scale_in_ecs::{
-    autoscaling, ecs, elasticache, elbv2, rds,
-};
 use clap::Parser;
 use log::{debug, info};
-use tokio;
+use scale_in_ecs::{autoscaling, ecs, elasticache, elbv2, rds};
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 #[clap(
-    version = "v0.2.3",
+    version = "v0.2.4",
     author = "Anton Sidorov tonysidrock@gmail.com",
     about = "Scale down ECS cluster"
 )]
 struct Args {
-    #[clap(short, long, default_value = "direc-prod-lb")]
+    #[clap(short, long, required = true)]
     cluster: String,
 
     #[clap(short, long, default_value = "eu-central-1")]
@@ -57,51 +54,51 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("Load Balancers: {:?}", load_balancers);
 
     if args.scaledown || args.delete {
-        if replication_groups.len() > 0 {
-            println!("Deleting elasticache replication groups.");
-        }
-        for replication_group in replication_groups {
-            elasticache::delete_replication_group(&elc_client, &replication_group).await?;
-        }
-        if asgs.len() > 0 {
+        if !asgs.is_empty() {
             println!("Scaling down ASGs.");
+            for asg in &asgs {
+                autoscaling::scale_down_asg(&as_client, asg, 0).await?;
+            }
         }
-        for asg in &asgs {
-            autoscaling::scale_down_asg(&as_client, &asg, 0).await?;
-        }
-        if services.len() > 0 {
+        if !services.is_empty() {
             println!("Scaling down ECS services.");
+            for service in &services {
+                ecs::scale_down_service(&ecs_client, &args.cluster, service, 0).await?;
+            }
         }
-        for service in &services {
-            ecs::scale_down_service(&ecs_client, &args.cluster, &service, 0).await?;
-        }
-        if db_instances.len() > 0 {
+        if !db_instances.is_empty() {
             println!("Stopping RDS instances.");
-        }
-        for db_instance in &db_instances {
-            rds::stop_db_instance(&rds_client, &db_instance).await?;
+            for db_instance in &db_instances {
+                rds::stop_db_instance(&rds_client, db_instance).await?;
+            }
         }
     }
 
     if args.delete {
-        if services.len() > 0 {
+        if !replication_groups.is_empty() {
+            println!("Deleting elasticache replication groups.");
+            for replication_group in replication_groups {
+                elasticache::delete_replication_group(&elc_client, &replication_group).await?;
+            }
+        }
+        if !services.is_empty() {
             println!("Deleting ECS services.");
+            for service in &services {
+                ecs::delete_service(&ecs_client, &args.cluster, service).await?;
+            }
         }
-        for service in &services {
-            ecs::delete_service(&ecs_client, &args.cluster, &service).await?;
-        }
-        if db_instances.len() > 0 {
+        if !db_instances.is_empty() {
             println!("Deleting RDS.");
+            for db_instance in &db_instances {
+                rds::disable_deletion_protection(&rds_client, db_instance).await?;
+                rds::delete_db_instance(&rds_client, db_instance).await?;
+            }
         }
-        for db_instance in &db_instances {
-            rds::disable_deletion_protection(&rds_client, &db_instance).await?;
-            rds::delete_db_instance(&rds_client, &db_instance).await?;
-        }
-        if load_balancers.len() > 0 {
+        if !load_balancers.is_empty() {
             println!("Deleting load balancers.");
-        }
-        for load_balancer in &load_balancers {
-            elbv2::delete_load_balancer(&elbv2_client, &load_balancer).await?;
+            for load_balancer in &load_balancers {
+                elbv2::delete_load_balancer(&elbv2_client, load_balancer).await?;
+            }
         }
     }
 
