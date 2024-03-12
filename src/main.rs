@@ -5,12 +5,12 @@ use scale_in_ecs::{autoscaling, ecs, elasticache, elbv2, rds};
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 #[clap(
-    version = "v0.2.3",
+    version = "v0.2.4",
     author = "Anton Sidorov tonysidrock@gmail.com",
     about = "Scale down ECS cluster"
 )]
 struct Args {
-    #[clap(short, long, default_value = "direc-prod-lb")]
+    #[clap(short, long, required = true)]
     cluster: String,
 
     #[clap(short, long, default_value = "eu-central-1")]
