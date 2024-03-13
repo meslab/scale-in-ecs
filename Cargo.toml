@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+async-recursion = "1.0.5"
 aws-config = { version = "1.1.5", features = ["behavior-version-latest"] }
 aws-sdk-autoscaling = { version = "1.15.0", features = ["behavior-version-latest"] }
 aws-sdk-ecs = { version = "1.15.0", features = ["behavior-version-latest"] }
