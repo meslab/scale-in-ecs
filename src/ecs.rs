@@ -64,32 +64,48 @@ pub async fn get_service_arns(
     Ok(service_arns)
 }
 
+#[async_recursion::async_recursion]
 pub async fn scale_down_service(
     client: &Client,
     cluster: &str,
     service_arn: &str,
     desired_count: i32,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    client
+    match client
         .update_service()
         .cluster(cluster)
         .service(service_arn)
         .desired_count(desired_count)
         .send()
-        .await?;
-    Ok(())
+        .await
+    {
+        Ok(_) => Ok(()),
+        _ => {
+            tokio::time::sleep(std::time::Duration::from_secs(15)).await;
+            scale_down_service(client, cluster, service_arn, desired_count).await?;
+            Ok(())
+        }
+    }
 }
 
+#[async_recursion::async_recursion]
 pub async fn delete_service(
     client: &Client,
     cluster: &str,
     service_arn: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    client
+    match client
         .delete_service()
         .cluster(cluster)
         .service(service_arn)
         .send()
-        .await?;
-    Ok(())
+        .await
+    {
+        Ok(_) => Ok(()),
+        _ => {
+            tokio::time::sleep(std::time::Duration::from_secs(15)).await;
+            delete_service(client, cluster, service_arn).await?;
+            Ok(())
+        }
+    }
 }
